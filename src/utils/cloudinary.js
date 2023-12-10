@@ -25,7 +25,7 @@ const uploadOnCloudinary = async (localFilePath) => {
     });
 
     // File has been successfully uploaded to Cloudinary
-    console.log("File is uploaded on Cloudinary", response);
+    console.log("++++++++++++++ Response of file uploaded on Cloudinary ++++++++++++++", response);
 
     // Return the Cloudinary response
     return response;
@@ -34,6 +34,8 @@ const uploadOnCloudinary = async (localFilePath) => {
 
     // Remove the locally saved temporary file as the upload operation failed
     fs.unlinkSync(localFilePath);
+
+    console.log("++++++++++++++ uploadOnCloudinary ++++++++++++++", error);
 
     // Return null to indicate the failure of the upload operation
     return null;

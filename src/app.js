@@ -9,7 +9,7 @@ const { CORS_ORIGIN } = process.env;
 // Create an Express application
 const app = express();
 
-console.log("app", app)
+// console.log("app", app)
 
 // Use cookie-parser middleware to parse cookies in incoming requests
 app.use(cookieParser());

@@ -29,11 +29,11 @@ const registerUser = asyncHandler(async function (req, res, next) {
   }
 
   // Log the files attached to the request (for debugging purposes)
-  console.log("req.files", req.files);
+  console.log("++++++++++++++ req.files ++++++++++++++", req.files);
 
   // Extract local paths of avatar and cover image files from the request
-  const avatarLocalPath = req.files?.["avatar"]?.path;
-  const coverImageLocalPath = req.files?.["coverImage"]?.path;
+  const avatarLocalPath = req.files?.["avatar"]?.[0]?.path;
+  const coverImageLocalPath = req.files?.["coverImage"]?.[0]?.path;
 
   // Check if avatar file is provided
   if (!avatarLocalPath) {
@@ -46,7 +46,7 @@ const registerUser = asyncHandler(async function (req, res, next) {
 
   // Check if avatar upload was successful
   if (!avatar) {
-    throw new ApiError(400, "Avatar upload failed");
+    throw new ApiError(400, "Avatar upload failed on cloudinary");
   }
 
   // Create a new user in the database with the provided data
@@ -59,6 +59,10 @@ const registerUser = asyncHandler(async function (req, res, next) {
     coverImage: coverImage?.url || "",
   });
 
+  const userResponse = user;
+  userResponse.password = undefined;
+  userResponse.refreshToken = undefined;
+
   // Check if user creation was successful
   if (!user) {
     throw new ApiError(500, "User creation failed");
@@ -67,13 +71,7 @@ const registerUser = asyncHandler(async function (req, res, next) {
   // Respond with a success message and the created user data (excluding sensitive information)
   res
     .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { ...user, password: undefined, refreshToken: undefined },
-        "User created successfully"
-      )
-    );
+    .json(new ApiResponse(200, userResponse, "User created successfully"));
 });
 
 // Export the user registration function
