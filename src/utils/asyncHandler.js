@@ -8,8 +8,9 @@ const asyncHandler = (fn) => async (req, res, next) => {
     // If an error occurs during the execution of 'fn', catch the error
 
     // Respond with a 404 status and a JSON object indicating failure
-    res.status(404).json({
+    res.status(401).json({
       success: false,
+      message: error.message,
     });
   }
 };
