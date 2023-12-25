@@ -5,6 +5,7 @@ import { User } from "../models/user.model.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const { REFRESH_TOKEN_SECRET } = process.env;
 
@@ -302,6 +303,142 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "avatar updated successfully"));
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  if (!username) {
+    throw new ApiError(401, "Invalid username");
+  }
+
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username,
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $addFields: {
+        subscribersCount: {
+          $size: "$subscribers",
+        },
+        channelsSubscribedToCount: {
+          $size: "$subscribedTo",
+        },
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.user._id, "$subscribers.subscriber"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        username: 1,
+        email: 1,
+        subscribersCount: 1,
+        channelsSubscribedToCount: 1,
+        isSubscribed: 1,
+        fullName: 1,
+        avatar: 1,
+        coverImage: 1,
+      },
+    },
+  ]);
+
+  console.log("============== channel ==================", channel);
+
+  if (!channel?.length) {
+    throw new ApiError(401, "Channel does not exist");
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(201, channel[0], "User profile fetched successfully")
+    );
+});
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+  // Using the 'await' keyword to ensure that the aggregation operation is complete before proceeding
+  const user = await User.aggregate([
+    // Stage 1: Match documents based on the provided condition
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(user.req._id), // Match the '_id' field with the specified user's ID
+      },
+    },
+    // Stage 2: Perform a lookup to retrieve data from the 'videos' collection
+    {
+      $lookup: {
+        from: "videos", // Source collection for the lookup operation
+        localField: "watchHistory", // Field from the current collection
+        foreignField: "_id", // Field from the 'videos' collection
+        as: "watchHistory", // Alias for the output field containing the results of the lookup
+        pipeline: [
+          // Sub-pipeline for the 'videos' collection lookup
+          {
+            // Nested lookup to retrieve information about the video owner from the 'users' collection
+            $lookup: {
+              from: "users", // Source collection for the nested lookup
+              localField: "owner", // Field from the current 'videos' collection
+              foreignField: "_id", // Field from the 'users' collection
+              as: "owner", // Alias for the output field containing the results of the nested lookup
+              pipeline: [
+                // Sub-pipeline for projecting specific fields from the 'users' collection
+                {
+                  $project: {
+                    fullName: 1, // Include the 'fullName' field
+                    username: 1, // Include the 'username' field
+                    avatar: 1, // Include the 'avatar' field
+                  },
+                },
+              ],
+            },
+          },
+          // AddFields stage to rename the 'owner' array to a single object using $first
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner", // Take the first (and only) element of the 'owner' array
+              },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  // The 'user' variable now contains the result of the aggregation operation with the specified lookup and matching conditions.
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        user[0].watchHistory,
+        "watch history fetch successfully"
+      )
+    );
+});
+
 // Export the user registration function
 export {
   registerUser,
@@ -312,4 +449,6 @@ export {
   getCurrentUser,
   updateAccountDetails,
   updateUserAvatar,
+  getUserChannelProfile,
+  getWatchHistory,
 };
