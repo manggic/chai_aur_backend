@@ -122,7 +122,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
   // If the password is not valid, throw an error
   if (!isPassValid) {
-    return new ApiError(201, "Invalid password");
+    throw new ApiError(201, "Invalid password");
   }
 
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
@@ -182,23 +182,28 @@ const logoutUser = asyncHandler(async (req, res, next) => {
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
   try {
+
+    // fetch refresh token from cookies
     const incomingRefreshToken =
       req.cookies.refreshToken || req.body.refreshToken;
 
+
+    // throw error if cookies is not present  
     if (!incomingRefreshToken) {
       throw new ApiError("Invalid refresh token");
     }
 
     const decodedToken = jwt.verify(incomingRefreshToken, REFRESH_TOKEN_SECRET);
 
+
     const user = await User.findById(decodedToken._id);
 
     if (!user) {
-      throw new ApiError("Invalid refresh token");
+      throw new ApiError(401, "User not found in DB");
     }
 
-    if (user.refreshToken !== decodedToken) {
-      throw new ApiError("Invalid refresh token");
+    if (user.refreshToken !== incomingRefreshToken) {
+      throw new ApiError("sent refresh token does not match with DB refresh token");
     }
 
     const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
@@ -223,6 +228,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       );
   } catch (error) {
     console.log("refreshAccessToken ERROR", error);
+    throw new ApiError(401, 'Invalid access token')
   }
 });
 
@@ -382,7 +388,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     // Stage 1: Match documents based on the provided condition
     {
       $match: {
-        _id: new mongoose.Types.ObjectId(user.req._id), // Match the '_id' field with the specified user's ID
+        _id: new mongoose.Types.ObjectId(req?.user?._id), // Match the '_id' field with the specified user's ID
       },
     },
     // Stage 2: Perform a lookup to retrieve data from the 'videos' collection
